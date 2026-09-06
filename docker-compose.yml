@@ -1,0 +1,49 @@
+# docker-compose.yml
+services:
+
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data        # feedback.db persists
+      - ./search:/app/search    # pre-built indexes mount in
+    command: ["bash", "scripts/entrypoint.sh"]
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB:       subsurface_monitoring
+      POSTGRES_USER:     admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d subsurface_monitoring"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+
+volumes:
+  postgres_data:
+  grafana_data:
